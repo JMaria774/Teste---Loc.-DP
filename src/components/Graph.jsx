@@ -26,11 +26,19 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
   const traces = useMemo(() => {
     const t = [];
 
+ 
     // Uncertainty band (shaded area)
     if (uncertainty && uncertainty.upper && uncertainty.lower) {
+      const bandX = [...distances, ...[...distances].reverse()];
+      const bandY = [
+        ...uncertainty.upper,
+        ...[...uncertainty.lower].reverse()
+      ];
+
+      // Área preenchida
       t.push({
-        x: [...distances, ...[...distances].reverse()],
-        y: [...uncertainty.upper, ...[...uncertainty.lower].reverse()],
+        x: bandX,
+        y: bandY,
         fill: 'toself',
         fillcolor: colors.bandColor,
         line: { color: 'transparent' },
@@ -39,19 +47,38 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
         hoverinfo: 'skip',
         type: 'scatter',
       });
+
+      // Limite superior
+      t.push({
+        x: distances,
+        y: uncertainty.upper,
+        mode: 'lines',
+        line: {
+          color: colors.lineClr,
+          width: 1.3,
+          dash: 'dot',
+        },
+        showlegend: false,
+        hoverinfo: 'skip',
+        type: 'scatter',
+      });
+
+      // Limite inferior
+      t.push({
+        x: distances,
+        y: uncertainty.lower,
+        mode: 'lines',
+        line: {
+          color: colors.lineClr,
+          width: 1.3,
+          dash: 'dot',
+        },
+        showlegend: false,
+        hoverinfo: 'skip',
+        type: 'scatter',
+      });
     }
 
-    // Main received power curve
-    t.push({
-      x: distances,
-      y: Pr,
-      mode: 'lines',
-      name: 'Potência recebida (dBm)',
-      line: { color: colors.lineClr, width: 2.2 },
-      hovertemplate:
-        '<b>Distância</b>: %{x:.1f} m<br><b>Pr</b>: %{y:.2f} dBm<extra></extra>',
-      type: 'scatter',
-    });
 
     return t;
   }, [distances, Pr, uncertainty, colors]);
