@@ -178,8 +178,13 @@ export function calcTwoRayModel(params, distances) {
         rhoRe * Math.cos(phase) +
         rhoIm * Math.sin(phase)
       );
+if (!Number.isFinite(F2)) {
+  throw new Error(`Fator de multipercurso inválido na distância ${d} m: ${F2}`);
+}
+    
+ F[i] = Math.max(F2, 0);
 
-    F[i] = Math.max(F2, 0);
+  
 
     // Received power in dBm (Eq. 3.7)
 
