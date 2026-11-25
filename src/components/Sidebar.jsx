@@ -90,22 +90,26 @@ export default function Sidebar({
           onChange={(v) => onParamChange('eps', v)}
           tooltip="Permissividade elétrica relativa do solo. Determina a intensidade do coeficiente de reflexão de Fresnel. Solo seco ≈ 4–7, solo úmido ≈ 15–30."
         />
-        <ParameterInput
-          id="mu"
-          label="Permeabilidade magnética (μr)"
-          unit="—"
-          value={params.mu}
-          onChange={(v) => onParamChange('mu', v)}
-          tooltip="Permeabilidade magnética relativa do solo. Para a maioria dos solos, μr ≈ 1. Este parâmetro é mantido para extensões futuras e não é utilizado nas equações atuais."
-        />
-        <ParameterInput
-          id="sigma"
-          label="Condutividade elétrica (σ)"
-          unit="S/m"
-          value={params.sigma}
-          onChange={(v) => onParamChange('sigma', v)}
-          tooltip="Condutividade elétrica do solo em Siemens/metro. Este parâmetro é mantido para extensões futuras e não é utilizado nas equações atuais."
-        />
+        
+<ParameterInput
+  id="mu"
+  label="Permeabilidade magnética (μr)"
+  unit="—"
+  value={params.mu}
+  onChange={(v) => onParamChange('mu', v)}
+  tooltip="Permeabilidade magnética relativa do solo. Influencia o número de onda complexo do meio e o coeficiente de reflexão de Fresnel. Para a maioria dos solos, considera-se μr ≈ 1."
+/>
+
+        
+<ParameterInput
+  id="sigma"
+  label="Condutividade elétrica (σ)"
+  unit="S/m"
+  value={params.sigma}
+  onChange={(v) => onParamChange('sigma', v)}
+  tooltip="Condutividade elétrica do solo, medida em Siemens por metro (S/m). Representa a capacidade do solo de conduzir corrente elétrica e influencia a parte imaginária da permissividade complexa, afetando o coeficiente de reflexão."
+/>
+
         <ParameterInput
           id="s"
           label="Rugosidade do terreno (s)"
