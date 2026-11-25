@@ -13,7 +13,7 @@ function getPlotColors(dark) {
     textClr: dark ? '#e8eaf6' : '#1a1d2e',
     lineClr: dark ? '#5c7cfa' : '#3b5bdb',
     legendBg: dark ? 'rgba(26,29,39,.8)' : 'rgba(255,255,255,.85)',
-    bandColor: dark ? 'rgba(92,124,250,0.15)' : 'rgba(59,91,219,0.12)',
+    bandColor: dark ? 'rgba(92,124,250,0.30)' : 'rgba(59,91,219,0.22)',
   };
 }
 
