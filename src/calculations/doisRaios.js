@@ -78,7 +78,7 @@ export function calcTwoRayModel(params, distances) {
   const {
     Pt, Gt, Gr,
     ht, hr, f,
-    eps, mu, sigma, s
+    eps, mu, sigma, s, n
   } = params;
 
   const lambda = calcWavelength(f);
@@ -186,18 +186,18 @@ if (!Number.isFinite(F2)) {
 
   
 
-    // Received power in dBm (Eq. 3.7)
+  // Received power in dBm (Extended Eq. 3.7 with path-loss exponent n)
 
-    const pathLoss = constFs - 20 * Math.log10(d);
+const d0 = 1; // Reference distance in meters
+const pathLoss = constFs - 10 * n * Math.log10(d / d0);
 
-    Pr[i] = F[i] > 0
-      ? Pt + Gt + Gr + pathLoss + 10 * Math.log10(F[i])
-      : -Infinity;
+Pr[i] = F[i] > 0
+  ? Pt + Gt + Gr + pathLoss + 10 * Math.log10(F[i])
+  : -Infinity;
 
-    // Magnitude of effective reflection coefficient
+// Magnitude of effective reflection coefficient
 
-    Gamma[i] = rhoEf[i];
-  }
+Gamma[i] = rhoEf[i];
 
   return {
     lambda,
