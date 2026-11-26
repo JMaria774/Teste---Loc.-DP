@@ -147,31 +147,30 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
         : [],
 
   
-annotations: breakpoint
-  ? [
-      {
-        x: Math.log10(breakpoint)
-        xref: 'x',
-        y: 0.95,
-        yref: 'paper',
-        text: `<b>Transição</b><br>${breakpoint.toFixed(1)} m`,
-        showarrow: true,
-        arrowcolor: '#f03e3e',
-        arrowhead: 2,
-        ax: 50,
-        ay: 30,
-        font: {
-          color: '#f03e3e',
-          size: 11,
-        },
-        bgcolor: colors.paperBg,
-        bordercolor: '#f03e3e',
-        borderwidth: 1,
-        borderpad: 4,
-      },
-    ]
-  : [],
-
+ annotations: breakpoint
+        ? [
+            {
+              x: breakpoint,
+              xref: 'x',
+              y: prMax,
+              yref: 'y',
+              text: `<b>Transição</b><br>${breakpoint.toFixed(1)} m`,
+              showarrow: true,
+              arrowcolor: '#f03e3e',
+              arrowhead: 2,
+              ax: 50,
+              ay: -30,
+              font: {
+                color: '#f03e3e',
+                size: 11,
+              },
+              bgcolor: colors.paperBg,
+              bordercolor: '#f03e3e',
+              borderwidth: 1,
+              borderpad: 4,
+            },
+          ]
+        : [],
 
       legend: {
         x: 0.01,
