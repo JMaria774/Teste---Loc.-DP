@@ -66,13 +66,18 @@ function App() {
   mu: p.mu,
   sigma: p.sigma,
   s: p.s,
+  n: p.n,
 };
 
     const mu = parseFloat(p.mu);
 const sigma = parseFloat(p.sigma);
+    const n = parseFloat(p.n);
 
 if (mu <= 0) return 'A permeabilidade relativa (μr) deve ser positiva.';
 if (sigma < 0) return 'A condutividade (σ) não pode ser negativa.';
+if (!Number.isFinite(n) || n <= 0) {
+  return 'O expoente de propagação (n) deve ser positivo.';
+}    
     
     for (const [key, val] of Object.entries(numericFields)) {
       const n = parseFloat(val);
@@ -135,6 +140,7 @@ if (sigma < 0) return 'A condutividade (σ) não pode ser negativa.';
   mu: parseFloat(params.mu),
   sigma: parseFloat(params.sigma),
   s: parseFloat(params.s),
+      n: parseFloat(params.n),
 };
 
     const u = parseFloat(uncertainty);
