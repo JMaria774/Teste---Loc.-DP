@@ -13,6 +13,7 @@ function getPlotColors(dark) {
     gridClr: dark ? '#2e3350' : '#dde1f5',
     textClr: dark ? '#e8eaf6' : '#1a1d2e',
     lineClr: dark ? '#5c7cfa' : '#3b5bdb',
+    meanLineClr: dark ? '#ffb454' : '#d97706',
     legendBg: dark ? 'rgba(26,29,39,.8)' : 'rgba(255,255,255,.85)',
 
     bandColor: dark
@@ -38,6 +39,50 @@ function convertPowerValues(values, Pt, displayMode) {
 }
 
 /**
+ * Calculate the smooth mean decay curve.
+ *
+ * The curve is anchored at the first received-power value.
+ * When the first distance is 1 m, this corresponds to:
+ *
+ * Pr_mean(d) = Pr(1m) - 10*n*log10(d/1m)
+ */
+function calculateMeanDecay(distances, Pr, n) {
+  if (
+    !Array.isArray(distances) ||
+    !Array.isArray(Pr) ||
+    distances.length !== Pr.length ||
+    distances.length === 0
+  ) {
+    return [];
+  }
+
+  const exponent = Number(n);
+  const referenceDistance = distances[0];
+  const referencePower = Pr[0];
+
+  if (
+    !Number.isFinite(exponent) ||
+    exponent <= 0 ||
+    !Number.isFinite(referenceDistance) ||
+    referenceDistance <= 0 ||
+    !Number.isFinite(referencePower)
+  ) {
+    return [];
+  }
+
+  return distances.map((distance) => {
+    if (!Number.isFinite(distance) || distance <= 0) {
+      return NaN;
+    }
+
+    return (
+      referencePower -
+      10 * exponent * Math.log10(distance / referenceDistance)
+    );
+  });
+}
+
+/**
  * Graph 1: Received power / transmission loss vs distance.
  */
 function DistanceGraph({
@@ -48,6 +93,7 @@ function DistanceGraph({
   dark,
   displayMode,
   Pt,
+  n,
 }) {
   const colors = getPlotColors(dark);
   const isLoss = displayMode === 'loss';
@@ -55,6 +101,17 @@ function DistanceGraph({
   const displayedPr = useMemo(
     () => convertPowerValues(Pr, Pt, displayMode),
     [Pr, Pt, displayMode]
+  );
+
+  // Smooth mean decay curve, without multipath oscillations.
+  const meanPr = useMemo(
+    () => calculateMeanDecay(distances, Pr, n),
+    [distances, Pr, n]
+  );
+
+  const displayedMeanPr = useMemo(
+    () => convertPowerValues(meanPr, Pt, displayMode),
+    [meanPr, Pt, displayMode]
   );
 
   // When power is converted into loss, the uncertainty limits invert.
@@ -109,17 +166,17 @@ function DistanceGraph({
       });
     }
 
-    // Main curve
+    // Original two-ray model curve.
     t.push({
       x: distances,
       y: displayedPr,
       mode: 'lines',
       name: isLoss
         ? 'Perda de transmissão (dB)'
-        : 'Potência recebida (dBm)',
+        : 'Potência recebida — Dois Raios (dBm)',
       line: {
         color: colors.lineClr,
-        width: 1,
+        width: 1.5,
       },
       hovertemplate: isLoss
         ? '<b>Distância</b>: %{x:.1f} m<br><b>Perda de transmissão</b>: %{y:.2f} dB<extra></extra>'
@@ -127,23 +184,51 @@ function DistanceGraph({
       type: 'scatter',
     });
 
+    // Smooth mean decay curve.
+    if (displayedMeanPr.length === distances.length) {
+      t.push({
+        x: distances,
+        y: displayedMeanPr,
+        mode: 'lines',
+        name: isLoss
+          ? `Tendência média da perda (n = ${Number(n).toFixed(2)})`
+          : `Decaimento médio do sinal (n = ${Number(n).toFixed(2)})`,
+        line: {
+          color: colors.meanLineClr,
+          width: 2.5,
+          dash: 'dash',
+        },
+        hovertemplate: isLoss
+          ? '<b>Distância</b>: %{x:.1f} m<br><b>Perda média</b>: %{y:.2f} dB<extra></extra>'
+          : '<b>Distância</b>: %{x:.1f} m<br><b>Potência média</b>: %{y:.2f} dBm<extra></extra>',
+        type: 'scatter',
+      });
+    }
+
     return t;
   }, [
     distances,
     displayedPr,
+    displayedMeanPr,
     bandUpper,
     bandLower,
     uncertainty,
     colors,
     isLoss,
+    n,
   ]);
 
-  const prMin = displayedPr.length
-    ? Math.min(...displayedPr)
+  const allDisplayedValues = [
+    ...displayedPr.filter(Number.isFinite),
+    ...displayedMeanPr.filter(Number.isFinite),
+  ];
+
+  const prMin = allDisplayedValues.length
+    ? Math.min(...allDisplayedValues)
     : -100;
 
-  const prMax = displayedPr.length
-    ? Math.max(...displayedPr)
+  const prMax = allDisplayedValues.length
+    ? Math.max(...allDisplayedValues)
     : 0;
 
   const quantityName = isLoss
@@ -191,7 +276,7 @@ function DistanceGraph({
         showgrid: true,
       },
 
-      // Original transition line preserved
+      // Transition line preserved.
       shapes: breakpoint
         ? [
             {
@@ -211,7 +296,7 @@ function DistanceGraph({
           ]
         : [],
 
-      // Original annotation preserved
+      // Original annotation preserved.
       annotations: breakpoint
         ? [
             {
@@ -334,7 +419,6 @@ function HeightGraph({
       });
     }
 
-    // Main curve
     t.push({
       x: displayedPr,
       y: heights,
@@ -458,8 +542,9 @@ export default function Graph({
   PrHeight,
   uncertaintyHeight,
 
-  // Transmitted power
+  // Transmitted power and path-loss exponent
   Pt,
+  n = 2,
 
   // Theme
   dark,
@@ -504,6 +589,7 @@ export default function Graph({
             dark={dark}
             displayMode={displayMode}
             Pt={Pt}
+            n={n}
           />
         )}
 
