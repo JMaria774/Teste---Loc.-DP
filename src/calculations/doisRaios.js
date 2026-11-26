@@ -178,26 +178,26 @@ export function calcTwoRayModel(params, distances) {
         rhoRe * Math.cos(phase) +
         rhoIm * Math.sin(phase)
       );
-if (!Number.isFinite(F2)) {
-  throw new Error(`Fator de multipercurso inválido na distância ${d} m: ${F2}`);
-}
-    
- F[i] = Math.max(F2, 0);
 
-  
+    if (!Number.isFinite(F2)) {
+      throw new Error(`Fator de multipercurso inválido na distância ${d} m: ${F2}`);
+    }
 
-  // Received power in dBm (Extended Eq. 3.7 with path-loss exponent n)
+    F[i] = Math.max(F2, 0);
 
-const d0 = 1; // Reference distance in meters
-const pathLoss = constFs - 10 * n * Math.log10(d / d0);
+    // Received power in dBm (Extended Eq. 3.7 with path-loss exponent n)
 
-Pr[i] = F[i] > 0
-  ? Pt + Gt + Gr + pathLoss + 10 * Math.log10(F[i])
-  : -Infinity;
+    const d0 = 1; // Reference distance in meters
+    const pathLoss = constFs - 10 * n * Math.log10(d / d0);
 
-// Magnitude of effective reflection coefficient
+    Pr[i] = F[i] > 0
+      ? Pt + Gt + Gr + pathLoss + 10 * Math.log10(F[i])
+      : -Infinity;
 
-Gamma[i] = rhoEf[i];
+    // Magnitude of effective reflection coefficient
+
+    Gamma[i] = rhoEf[i];
+  } // End of for loop
 
   return {
     lambda,
@@ -210,7 +210,7 @@ Gamma[i] = rhoEf[i];
     d2,
     cosT,
   };
-}
+} // End of calcTwoRayModel
 
 // --------------------------------------------------
 // Distance generation
