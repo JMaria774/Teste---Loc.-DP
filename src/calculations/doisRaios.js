@@ -94,21 +94,24 @@ export function calcTwoRayModel(params, distances) {
     im: -(sigma * mu) / (omega * EPS0),
   };
 
-  const n = distances.length;
+ const numDistances = distances.length;
 
-  const d1 = new Array(n);
-  const d2 = new Array(n);
-  const cosT = new Array(n);
+const d1 = new Array(numDistances);
+const d2 = new Array(numDistances);
+const cosT = new Array(numDistances);
 
-  const rhoEf = new Array(n);
-  const Gamma = new Array(n);
-  const F = new Array(n);
-  const Pr = new Array(n);
+const rhoEf = new Array(numDistances);
+const Gamma = new Array(numDistances);
+const F = new Array(numDistances);
+const Pr = new Array(numDistances);
 
-  const constFs = 20 * Math.log10(lambda / (4 * Math.PI));
+const constFs = 20 * Math.log10(lambda / (4 * Math.PI));
 
-  for (let i = 0; i < n; i++) {
-    const d = distances[i];
+for (let i = 0; i < numDistances; i++) {
+  const d = distances[i];
+
+  // Restante dos cálculos...
+}
 
     // Direct and reflected path lengths
 
