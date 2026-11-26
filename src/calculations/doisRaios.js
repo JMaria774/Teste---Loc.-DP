@@ -3,6 +3,7 @@
  * Two-Ray Ground Reflection Model — Core Calculations
  *
  * Implementation based on equations 3.1–3.7 of the reference article.
+ * Extended with an empirical path-loss exponent n.
  *
  * Breakpoint:
  * Rb = 4 * ht * hr / lambda
@@ -13,6 +14,7 @@
  * eps, mu: relative permittivity and permeability
  * sigma: electrical conductivity (S/m)
  * s: surface roughness (m)
+ * n: path-loss exponent
  */
 
 const C = 3e8;
@@ -81,6 +83,8 @@ export function calcTwoRayModel(params, distances) {
     eps, mu, sigma, s, n
   } = params;
 
+  // Basic parameters
+
   const lambda = calcWavelength(f);
   const breakpoint = calcBreakpoint(ht, hr, lambda);
   const omega = 2 * Math.PI * f;
@@ -94,24 +98,33 @@ export function calcTwoRayModel(params, distances) {
     im: -(sigma * mu) / (omega * EPS0),
   };
 
- const numDistances = distances.length;
+  // Number of distance points
 
-const d1 = new Array(numDistances);
-const d2 = new Array(numDistances);
-const cosT = new Array(numDistances);
+  const numDistances = distances.length;
 
-const rhoEf = new Array(numDistances);
-const Gamma = new Array(numDistances);
-const F = new Array(numDistances);
-const Pr = new Array(numDistances);
+  // Arrays
 
-const constFs = 20 * Math.log10(lambda / (4 * Math.PI));
+  const d1 = new Array(numDistances);
+  const d2 = new Array(numDistances);
+  const cosT = new Array(numDistances);
 
-for (let i = 0; i < numDistances; i++) {
-  const d = distances[i];
+  const rhoEf = new Array(numDistances);
+  const Gamma = new Array(numDistances);
+  const F = new Array(numDistances);
+  const Pr = new Array(numDistances);
 
-  // Restante dos cálculos...
-}
+  // Constant free-space term
+
+  const constFs = 20 * Math.log10(lambda / (4 * Math.PI));
+
+  // Reference distance for the path-loss model
+
+  const d0 = 1;
+
+  // Distance loop
+
+  for (let i = 0; i < numDistances; i++) {
+    const d = distances[i];
 
     // Direct and reflected path lengths
 
@@ -183,15 +196,18 @@ for (let i = 0; i < numDistances; i++) {
       );
 
     if (!Number.isFinite(F2)) {
-      throw new Error(`Fator de multipercurso inválido na distância ${d} m: ${F2}`);
+      throw new Error(
+        `Fator de multipercurso inválido na distância ${d} m: ${F2}`
+      );
     }
 
     F[i] = Math.max(F2, 0);
 
-    // Received power in dBm (Extended Eq. 3.7 with path-loss exponent n)
+    // Received power in dBm
+    // Extended Eq. 3.7 with path-loss exponent n
 
-    const d0 = 1; // Reference distance in meters
-    const pathLoss = constFs - 10 * n * Math.log10(d / d0);
+    const pathLoss =
+      constFs - 10 * n * Math.log10(d / d0);
 
     Pr[i] = F[i] > 0
       ? Pt + Gt + Gr + pathLoss + 10 * Math.log10(F[i])
@@ -200,7 +216,7 @@ for (let i = 0; i < numDistances; i++) {
     // Magnitude of effective reflection coefficient
 
     Gamma[i] = rhoEf[i];
-  } // End of for loop
+  }
 
   return {
     lambda,
@@ -213,7 +229,7 @@ for (let i = 0; i < numDistances; i++) {
     d2,
     cosT,
   };
-} // End of calcTwoRayModel
+}
 
 // --------------------------------------------------
 // Distance generation
@@ -239,12 +255,12 @@ export function calcTwoRayVsHeight(
   fixedDistance,
   heights
 ) {
-  const n = heights.length;
+  const numHeights = heights.length;
 
-  const Pr = new Array(n);
-  const F = new Array(n);
+  const Pr = new Array(numHeights);
+  const F = new Array(numHeights);
 
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < numHeights; i++) {
     const modifiedParams = {
       ...params,
       ht: heights[i],
@@ -312,7 +328,7 @@ export function calcUncertaintyBands(
 // --------------------------------------------------
 
 export const DEFAULT_PARAMS = {
-  n: 2,       // Future propagation exponent extension
+  n: 2,       // Path-loss exponent (original model when n = 2)
 
   Pt: 0,      // Transmitted power (dBm)
   Gt: 0,      // Transmitter gain (dB)
