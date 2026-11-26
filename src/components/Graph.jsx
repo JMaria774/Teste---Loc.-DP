@@ -149,7 +149,7 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
       annotations: breakpoint
         ? [
             {
-              x: breakpoint,
+              x: Math.log10(breakpoint),
               xref: 'x',
               y: prMax,
               yref: 'y',
