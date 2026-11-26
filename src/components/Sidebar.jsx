@@ -297,12 +297,12 @@ export default function Sidebar({
 
         {sidebarTab === 'propagation' && (
           <>
-            <p className="section-title">Expoente de propagação</p>
+            <p className="section-title">Expoente de perda de percurso</p>
 
             <p className="propagation-description">
-              O expoente n representa a taxa de variação da potência recebida
-              com a distância. Escolha um ambiente de referência ou informe
-              um valor personalizado.
+            O expoente de perda de percurso caracteriza a atenuação do sinal durante sua propagação.
+            Seu valor depende do ambiente e das condições de propagação, como obstáculos, reflexões e presença de visada direta.
+            Selecione um ambiente de referência ou informe um valor personalizado.
             </p>
 
             <div className="n-mode-selector">
