@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import Plot from 'react-plotly.js';
 import './Graph.css';
 
@@ -15,7 +15,6 @@ function getPlotColors(dark) {
     lineClr: dark ? '#5c7cfa' : '#3b5bdb',
     legendBg: dark ? 'rgba(26,29,39,.8)' : 'rgba(255,255,255,.85)',
 
-    // Faixa de incerteza em laranja
     bandColor: dark
       ? 'rgba(255, 159, 67, 0.25)'
       : 'rgba(230, 126, 34, 0.18)',
@@ -23,28 +22,72 @@ function getPlotColors(dark) {
 }
 
 /**
- * Graph 1: Received power vs distance.
+ * Convert received power into the selected display quantity.
+ *
+ * Power mode: dBm
+ * Loss mode: dB
  */
-function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
+function convertPowerValues(values, Pt, displayMode) {
+  if (!Array.isArray(values)) return [];
+
+  if (displayMode === 'loss') {
+    return values.map((value) => Pt - value);
+  }
+
+  return values;
+}
+
+/**
+ * Graph 1: Received power / transmission loss vs distance.
+ */
+function DistanceGraph({
+  distances,
+  Pr,
+  breakpoint,
+  uncertainty,
+  dark,
+  displayMode,
+  Pt,
+}) {
   const colors = getPlotColors(dark);
+  const isLoss = displayMode === 'loss';
+
+  const displayedPr = useMemo(
+    () => convertPowerValues(Pr, Pt, displayMode),
+    [Pr, Pt, displayMode]
+  );
+
+  // When power is converted into loss, the uncertainty limits invert.
+  const bandUpper = useMemo(() => {
+    if (!uncertainty || !Array.isArray(uncertainty.upper)) return [];
+
+    return isLoss
+      ? convertPowerValues(uncertainty.lower, Pt, 'loss')
+      : uncertainty.upper;
+  }, [uncertainty, Pt, isLoss]);
+
+  const bandLower = useMemo(() => {
+    if (!uncertainty || !Array.isArray(uncertainty.lower)) return [];
+
+    return isLoss
+      ? convertPowerValues(uncertainty.upper, Pt, 'loss')
+      : uncertainty.lower;
+  }, [uncertainty, Pt, isLoss]);
 
   const traces = useMemo(() => {
     const t = [];
 
-    // Verifica se existem dados válidos de incerteza
     const hasUncertainty =
       uncertainty &&
-      Array.isArray(uncertainty.upper) &&
-      Array.isArray(uncertainty.lower) &&
-      uncertainty.upper.length === distances.length &&
-      uncertainty.lower.length === distances.length;
+      Array.isArray(bandUpper) &&
+      Array.isArray(bandLower) &&
+      bandUpper.length === distances.length &&
+      bandLower.length === distances.length;
 
-    // Faixa de incerteza
     if (hasUncertainty) {
-      // Limite superior
       t.push({
         x: distances,
-        y: uncertainty.upper,
+        y: bandUpper,
         mode: 'lines',
         line: { color: 'rgba(0,0,0,0)', width: 0 },
         showlegend: false,
@@ -52,10 +95,9 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
         type: 'scatter',
       });
 
-      // Limite inferior e preenchimento entre os limites
       t.push({
         x: distances,
-        y: uncertainty.lower,
+        y: bandLower,
         mode: 'lines',
         line: { color: 'rgba(0,0,0,0)', width: 0 },
         fill: 'tonexty',
@@ -67,26 +109,46 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
       });
     }
 
-    // CURVA PRINCIPAL: sempre desenhada
+    // Main curve
     t.push({
       x: distances,
-      y: Pr,
+      y: displayedPr,
       mode: 'lines',
-      name: 'Potência recebida (dBm)',
+      name: isLoss
+        ? 'Perda de transmissão (dB)'
+        : 'Potência recebida (dBm)',
       line: {
         color: colors.lineClr,
         width: 1,
       },
-      hovertemplate:
-        '<b>Distância</b>: %{x:.1f} m<br><b>Pr</b>: %{y:.2f} dBm<extra></extra>',
+      hovertemplate: isLoss
+        ? '<b>Distância</b>: %{x:.1f} m<br><b>Perda de transmissão</b>: %{y:.2f} dB<extra></extra>'
+        : '<b>Distância</b>: %{x:.1f} m<br><b>Potência recebida</b>: %{y:.2f} dBm<extra></extra>',
       type: 'scatter',
     });
 
     return t;
-  }, [distances, Pr, uncertainty, colors]);
+  }, [
+    distances,
+    displayedPr,
+    bandUpper,
+    bandLower,
+    uncertainty,
+    colors,
+    isLoss,
+  ]);
 
-  const prMin = Pr && Pr.length ? Math.min(...Pr) : -100;
-  const prMax = Pr && Pr.length ? Math.max(...Pr) : 0;
+  const prMin = displayedPr.length
+    ? Math.min(...displayedPr)
+    : -100;
+
+  const prMax = displayedPr.length
+    ? Math.max(...displayedPr)
+    : 0;
+
+  const quantityName = isLoss
+    ? 'Perda de transmissão (dB)'
+    : 'Potência recebida (dBm)';
 
   const layout = useMemo(
     () => ({
@@ -96,7 +158,9 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
       margin: { l: 65, r: 30, t: 45, b: 55 },
 
       title: {
-        text: 'Potência Recebida vs Distância',
+        text: isLoss
+          ? 'Perda de Transmissão vs Distância'
+          : 'Potência Recebida vs Distância',
         font: {
           color: colors.textClr,
           size: 15,
@@ -118,7 +182,7 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
 
       yaxis: {
         title: {
-          text: 'Potência recebida (dBm)',
+          text: quantityName,
           font: { color: colors.textClr },
         },
         tickcolor: colors.gridClr,
@@ -127,6 +191,7 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
         showgrid: true,
       },
 
+      // Original transition line preserved
       shapes: breakpoint
         ? [
             {
@@ -146,6 +211,7 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
           ]
         : [],
 
+      // Original annotation preserved
       annotations: breakpoint
         ? [
             {
@@ -180,7 +246,7 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
         font: { color: colors.textClr },
       },
     }),
-    [breakpoint, prMin, prMax, colors]
+    [breakpoint, prMin, prMax, colors, isLoss, quantityName]
   );
 
   const config = {
@@ -205,27 +271,54 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
 }
 
 /**
- * Graph 2: Received power vs transmitter antenna height.
+ * Graph 2: Received power / transmission loss vs transmitter height.
  */
-function HeightGraph({ heights, Pr, uncertainty, dark }) {
+function HeightGraph({
+  heights,
+  Pr,
+  uncertainty,
+  dark,
+  displayMode,
+  Pt,
+}) {
   const colors = getPlotColors(dark);
+  const isLoss = displayMode === 'loss';
+
+  const displayedPr = useMemo(
+    () => convertPowerValues(Pr, Pt, displayMode),
+    [Pr, Pt, displayMode]
+  );
+
+  // Invert uncertainty limits when displaying transmission loss.
+  const bandUpper = useMemo(() => {
+    if (!uncertainty || !Array.isArray(uncertainty.upper)) return [];
+
+    return isLoss
+      ? convertPowerValues(uncertainty.lower, Pt, 'loss')
+      : uncertainty.upper;
+  }, [uncertainty, Pt, isLoss]);
+
+  const bandLower = useMemo(() => {
+    if (!uncertainty || !Array.isArray(uncertainty.lower)) return [];
+
+    return isLoss
+      ? convertPowerValues(uncertainty.upper, Pt, 'loss')
+      : uncertainty.lower;
+  }, [uncertainty, Pt, isLoss]);
 
   const traces = useMemo(() => {
     const t = [];
 
     const hasUncertainty =
       uncertainty &&
-      Array.isArray(uncertainty.upper) &&
-      Array.isArray(uncertainty.lower) &&
-      uncertainty.upper.length === heights.length &&
-      uncertainty.lower.length === heights.length;
+      bandUpper.length === heights.length &&
+      bandLower.length === heights.length;
 
-    // Faixa de incerteza
     if (hasUncertainty) {
       t.push({
         x: [
-          ...uncertainty.upper,
-          ...[...uncertainty.lower].reverse(),
+          ...bandUpper,
+          ...[...bandLower].reverse(),
         ],
         y: [
           ...heights,
@@ -241,23 +334,38 @@ function HeightGraph({ heights, Pr, uncertainty, dark }) {
       });
     }
 
-    // Curva principal: sempre desenhada
+    // Main curve
     t.push({
-      x: Pr,
+      x: displayedPr,
       y: heights,
       mode: 'lines',
-      name: 'Potência recebida (dBm)',
+      name: isLoss
+        ? 'Perda de transmissão (dB)'
+        : 'Potência recebida (dBm)',
       line: {
         color: colors.lineClr,
         width: 2.2,
       },
-      hovertemplate:
-        '<b>ht</b>: %{y:.1f} m<br><b>Pr</b>: %{x:.2f} dBm<extra></extra>',
+      hovertemplate: isLoss
+        ? '<b>ht</b>: %{y:.1f} m<br><b>Perda de transmissão</b>: %{x:.2f} dB<extra></extra>'
+        : '<b>ht</b>: %{y:.1f} m<br><b>Potência recebida</b>: %{x:.2f} dBm<extra></extra>',
       type: 'scatter',
     });
 
     return t;
-  }, [heights, Pr, uncertainty, colors]);
+  }, [
+    heights,
+    displayedPr,
+    bandUpper,
+    bandLower,
+    uncertainty,
+    colors,
+    isLoss,
+  ]);
+
+  const quantityName = isLoss
+    ? 'Perda de transmissão (dB)'
+    : 'Potência recebida (dBm)';
 
   const layout = useMemo(
     () => ({
@@ -267,7 +375,9 @@ function HeightGraph({ heights, Pr, uncertainty, dark }) {
       margin: { l: 65, r: 30, t: 45, b: 55 },
 
       title: {
-        text: 'Potência Recebida vs Altura do Transmissor',
+        text: isLoss
+          ? 'Perda de Transmissão vs Altura do Transmissor'
+          : 'Potência Recebida vs Altura do Transmissor',
         font: {
           color: colors.textClr,
           size: 15,
@@ -277,7 +387,7 @@ function HeightGraph({ heights, Pr, uncertainty, dark }) {
 
       xaxis: {
         title: {
-          text: 'Potência recebida (dBm)',
+          text: quantityName,
           font: { color: colors.textClr },
         },
         tickcolor: colors.gridClr,
@@ -306,7 +416,7 @@ function HeightGraph({ heights, Pr, uncertainty, dark }) {
         font: { color: colors.textClr },
       },
     }),
-    [colors]
+    [colors, isLoss, quantityName]
   );
 
   const config = {
@@ -348,9 +458,14 @@ export default function Graph({
   PrHeight,
   uncertaintyHeight,
 
+  // Transmitted power
+  Pt,
+
   // Theme
   dark,
 }) {
+  const [displayMode, setDisplayMode] = useState('power');
+
   const hasDistData =
     distances &&
     Pr &&
@@ -387,6 +502,8 @@ export default function Graph({
             breakpoint={breakpoint}
             uncertainty={uncertaintyDist}
             dark={dark}
+            displayMode={displayMode}
+            Pt={Pt}
           />
         )}
 
@@ -396,6 +513,8 @@ export default function Graph({
             Pr={PrHeight}
             uncertainty={uncertaintyHeight}
             dark={dark}
+            displayMode={displayMode}
+            Pt={Pt}
           />
         )}
 
@@ -409,6 +528,21 @@ export default function Graph({
             </p>
           </div>
         )}
+      </div>
+
+      <div className="display-mode-control">
+        <label htmlFor="display-mode">
+          Grandeza apresentada no gráfico:
+        </label>
+
+        <select
+          id="display-mode"
+          value={displayMode}
+          onChange={(e) => setDisplayMode(e.target.value)}
+        >
+          <option value="power">Potência recebida (dBm)</option>
+          <option value="loss">Perda de transmissão (dB)</option>
+        </select>
       </div>
 
       <p className="hint">
