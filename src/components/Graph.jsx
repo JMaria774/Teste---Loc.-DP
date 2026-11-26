@@ -15,7 +15,6 @@ function getPlotColors(dark) {
     lineClr: dark ? '#5c7cfa' : '#3b5bdb',
     meanLineClr: dark ? '#ffb454' : '#d97706',
     legendBg: dark ? 'rgba(26,29,39,.8)' : 'rgba(255,255,255,.85)',
-
     bandColor: dark
       ? 'rgba(255, 159, 67, 0.25)'
       : 'rgba(230, 126, 34, 0.18)',
@@ -26,7 +25,8 @@ function getPlotColors(dark) {
  * Convert received power into the selected display quantity.
  *
  * Power mode: dBm
- * Loss mode: dB
+ * Relative mode: dB (Pr - Pt)
+ * Loss mode: dB (Pt - Pr)
  */
 function convertPowerValues(values, Pt, displayMode) {
   if (!Array.isArray(values)) return [];
@@ -35,16 +35,19 @@ function convertPowerValues(values, Pt, displayMode) {
     return values.map((value) => Pt - value);
   }
 
+  if (displayMode === 'relative') {
+    return values.map((value) => value - Pt);
+  }
+
   return values;
 }
 
 /**
  * Calculate the smooth mean decay curve.
  *
- * The curve is anchored at the first received-power value.
- * When the first distance is 1 m, this corresponds to:
+ * Pr_mean(d) = Pr(d0) - 10*n*log10(d/d0)
  *
- * Pr_mean(d) = Pr(1m) - 10*n*log10(d/1m)
+ * The curve is anchored at the first distance.
  */
 function calculateMeanDecay(distances, Pr, n) {
   if (
@@ -83,7 +86,7 @@ function calculateMeanDecay(distances, Pr, n) {
 }
 
 /**
- * Graph 1: Received power / transmission loss vs distance.
+ * Graph 1: Received power / relative level / transmission loss vs distance.
  */
 function DistanceGraph({
   distances,
@@ -97,13 +100,14 @@ function DistanceGraph({
 }) {
   const colors = getPlotColors(dark);
   const isLoss = displayMode === 'loss';
+  const isRelative = displayMode === 'relative';
 
   const displayedPr = useMemo(
     () => convertPowerValues(Pr, Pt, displayMode),
     [Pr, Pt, displayMode]
   );
 
-  // Smooth mean decay curve, without multipath oscillations.
+  // Smooth mean decay curve.
   const meanPr = useMemo(
     () => calculateMeanDecay(distances, Pr, n),
     [distances, Pr, n]
@@ -114,30 +118,32 @@ function DistanceGraph({
     [meanPr, Pt, displayMode]
   );
 
-  // When power is converted into loss, the uncertainty limits invert.
+  // Uncertainty limits.
   const bandUpper = useMemo(() => {
     if (!uncertainty || !Array.isArray(uncertainty.upper)) return [];
 
     return isLoss
       ? convertPowerValues(uncertainty.lower, Pt, 'loss')
-      : uncertainty.upper;
-  }, [uncertainty, Pt, isLoss]);
+      : isRelative
+        ? convertPowerValues(uncertainty.upper, Pt, 'relative')
+        : uncertainty.upper.map((value) => value - Pt);
+  }, [uncertainty, Pt, isLoss, isRelative]);
 
   const bandLower = useMemo(() => {
     if (!uncertainty || !Array.isArray(uncertainty.lower)) return [];
 
     return isLoss
       ? convertPowerValues(uncertainty.upper, Pt, 'loss')
-      : uncertainty.lower;
-  }, [uncertainty, Pt, isLoss]);
+      : isRelative
+        ? convertPowerValues(uncertainty.lower, Pt, 'relative')
+        : uncertainty.lower.map((value) => value - Pt);
+  }, [uncertainty, Pt, isLoss, isRelative]);
 
   const traces = useMemo(() => {
     const t = [];
 
     const hasUncertainty =
       uncertainty &&
-      Array.isArray(bandUpper) &&
-      Array.isArray(bandLower) &&
       bandUpper.length === distances.length &&
       bandLower.length === distances.length;
 
@@ -166,25 +172,29 @@ function DistanceGraph({
       });
     }
 
-    // Original two-ray model curve.
+    // Theoretical two-ray curve.
     t.push({
       x: distances,
       y: displayedPr,
       mode: 'lines',
       name: isLoss
         ? 'Perda de transmissão (dB)'
-        : 'Potência recebida — Dois Raios (dBm)',
+        : isRelative
+          ? 'Curva teórica — Dois Raios (dB)'
+          : 'Potência recebida — Dois Raios (dBm)',
       line: {
         color: colors.lineClr,
         width: 1.5,
       },
       hovertemplate: isLoss
         ? '<b>Distância</b>: %{x:.1f} m<br><b>Perda de transmissão</b>: %{y:.2f} dB<extra></extra>'
-        : '<b>Distância</b>: %{x:.1f} m<br><b>Potência recebida</b>: %{y:.2f} dBm<extra></extra>',
+        : isRelative
+          ? '<b>Distância</b>: %{x:.1f} m<br><b>Nível recebido relativo</b>: %{y:.2f} dB<extra></extra>'
+          : '<b>Distância</b>: %{x:.1f} m<br><b>Potência recebida</b>: %{y:.2f} dBm<extra></extra>',
       type: 'scatter',
     });
 
-    // Smooth mean decay curve.
+    // Smooth approximate decay curve.
     if (displayedMeanPr.length === distances.length) {
       t.push({
         x: distances,
@@ -192,7 +202,9 @@ function DistanceGraph({
         mode: 'lines',
         name: isLoss
           ? `Tendência média da perda (n = ${Number(n).toFixed(2)})`
-          : `Decaimento médio do sinal (n = ${Number(n).toFixed(2)})`,
+          : isRelative
+            ? `Curva aproximada — RSSI (n = ${Number(n).toFixed(2)})`
+            : `Decaimento médio do sinal (n = ${Number(n).toFixed(2)})`,
         line: {
           color: colors.meanLineClr,
           width: 2.5,
@@ -200,7 +212,9 @@ function DistanceGraph({
         },
         hovertemplate: isLoss
           ? '<b>Distância</b>: %{x:.1f} m<br><b>Perda média</b>: %{y:.2f} dB<extra></extra>'
-          : '<b>Distância</b>: %{x:.1f} m<br><b>Potência média</b>: %{y:.2f} dBm<extra></extra>',
+          : isRelative
+            ? '<b>Distância</b>: %{x:.1f} m<br><b>Nível médio</b>: %{y:.2f} dB<extra></extra>'
+            : '<b>Distância</b>: %{x:.1f} m<br><b>Potência média</b>: %{y:.2f} dBm<extra></extra>',
         type: 'scatter',
       });
     }
@@ -215,6 +229,7 @@ function DistanceGraph({
     uncertainty,
     colors,
     isLoss,
+    isRelative,
     n,
   ]);
 
@@ -233,7 +248,9 @@ function DistanceGraph({
 
   const quantityName = isLoss
     ? 'Perda de transmissão (dB)'
-    : 'Potência recebida (dBm)';
+    : isRelative
+      ? 'Nível recebido relativo (dB)'
+      : 'Potência recebida (dBm)';
 
   const layout = useMemo(
     () => ({
@@ -245,7 +262,9 @@ function DistanceGraph({
       title: {
         text: isLoss
           ? 'Perda de Transmissão vs Distância'
-          : 'Potência Recebida vs Distância',
+          : isRelative
+            ? 'Nível Recebido Relativo vs Distância'
+            : 'Potência Recebida vs Distância',
         font: {
           color: colors.textClr,
           size: 15,
@@ -331,7 +350,7 @@ function DistanceGraph({
         font: { color: colors.textClr },
       },
     }),
-    [breakpoint, prMin, prMax, colors, isLoss, quantityName]
+    [breakpoint, prMin, prMax, colors, isLoss, isRelative, quantityName]
   );
 
   const config = {
@@ -356,7 +375,7 @@ function DistanceGraph({
 }
 
 /**
- * Graph 2: Received power / transmission loss vs transmitter height.
+ * Graph 2: Received power / relative level / transmission loss vs transmitter height.
  */
 function HeightGraph({
   heights,
@@ -368,28 +387,32 @@ function HeightGraph({
 }) {
   const colors = getPlotColors(dark);
   const isLoss = displayMode === 'loss';
+  const isRelative = displayMode === 'relative';
 
   const displayedPr = useMemo(
     () => convertPowerValues(Pr, Pt, displayMode),
     [Pr, Pt, displayMode]
   );
 
-  // Invert uncertainty limits when displaying transmission loss.
   const bandUpper = useMemo(() => {
     if (!uncertainty || !Array.isArray(uncertainty.upper)) return [];
 
     return isLoss
       ? convertPowerValues(uncertainty.lower, Pt, 'loss')
-      : uncertainty.upper;
-  }, [uncertainty, Pt, isLoss]);
+      : isRelative
+        ? convertPowerValues(uncertainty.upper, Pt, 'relative')
+        : uncertainty.upper.map((value) => value - Pt);
+  }, [uncertainty, Pt, isLoss, isRelative]);
 
   const bandLower = useMemo(() => {
     if (!uncertainty || !Array.isArray(uncertainty.lower)) return [];
 
     return isLoss
       ? convertPowerValues(uncertainty.upper, Pt, 'loss')
-      : uncertainty.lower;
-  }, [uncertainty, Pt, isLoss]);
+      : isRelative
+        ? convertPowerValues(uncertainty.lower, Pt, 'relative')
+        : uncertainty.lower.map((value) => value - Pt);
+  }, [uncertainty, Pt, isLoss, isRelative]);
 
   const traces = useMemo(() => {
     const t = [];
@@ -425,14 +448,18 @@ function HeightGraph({
       mode: 'lines',
       name: isLoss
         ? 'Perda de transmissão (dB)'
-        : 'Potência recebida (dBm)',
+        : isRelative
+          ? 'Nível recebido relativo (dB)'
+          : 'Potência recebida (dBm)',
       line: {
         color: colors.lineClr,
         width: 2.2,
       },
       hovertemplate: isLoss
         ? '<b>ht</b>: %{y:.1f} m<br><b>Perda de transmissão</b>: %{x:.2f} dB<extra></extra>'
-        : '<b>ht</b>: %{y:.1f} m<br><b>Potência recebida</b>: %{x:.2f} dBm<extra></extra>',
+        : isRelative
+          ? '<b>ht</b>: %{y:.1f} m<br><b>Nível recebido relativo</b>: %{x:.2f} dB<extra></extra>'
+          : '<b>ht</b>: %{y:.1f} m<br><b>Potência recebida</b>: %{x:.2f} dBm<extra></extra>',
       type: 'scatter',
     });
 
@@ -445,11 +472,14 @@ function HeightGraph({
     uncertainty,
     colors,
     isLoss,
+    isRelative,
   ]);
 
   const quantityName = isLoss
     ? 'Perda de transmissão (dB)'
-    : 'Potência recebida (dBm)';
+    : isRelative
+      ? 'Nível recebido relativo (dB)'
+      : 'Potência recebida (dBm)';
 
   const layout = useMemo(
     () => ({
@@ -461,7 +491,9 @@ function HeightGraph({
       title: {
         text: isLoss
           ? 'Perda de Transmissão vs Altura do Transmissor'
-          : 'Potência Recebida vs Altura do Transmissor',
+          : isRelative
+            ? 'Nível Recebido Relativo vs Altura do Transmissor'
+            : 'Potência Recebida vs Altura do Transmissor',
         font: {
           color: colors.textClr,
           size: 15,
@@ -500,7 +532,7 @@ function HeightGraph({
         font: { color: colors.textClr },
       },
     }),
-    [colors, isLoss, quantityName]
+    [colors, isLoss, isRelative, quantityName]
   );
 
   const config = {
@@ -549,7 +581,7 @@ export default function Graph({
   // Theme
   dark,
 }) {
-  const [displayMode, setDisplayMode] = useState('power');
+  const [displayMode, setDisplayMode] = useState('relative');
 
   const hasDistData =
     distances &&
@@ -627,6 +659,7 @@ export default function Graph({
           onChange={(e) => setDisplayMode(e.target.value)}
         >
           <option value="power">Potência recebida (dBm)</option>
+          <option value="relative">Nível recebido relativo (dB)</option>
           <option value="loss">Perda de transmissão (dB)</option>
         </select>
       </div>
