@@ -257,6 +257,7 @@ if (!Number.isFinite(n) || n <= 0) {
           <Graph
             activeTab={activeTab}
             onTabChange={setActiveTab}
+            Pt={parseFloat(params.Pt)}
             distances={distResult?.distances}
             Pr={distResult?.Pr}
             breakpoint={distResult?.breakpoint}
