@@ -13,9 +13,9 @@ function getPlotColors(dark) {
     textClr: dark ? '#e8eaf6' : '#1a1d2e',
     lineClr: dark ? '#5c7cfa' : '#3b5bdb',
     legendBg: dark ? 'rgba(26,29,39,.8)' : 'rgba(255,255,255,.85)',
-   bandColor: dark
-  ? 'rgba(92,124,250,0.22)'
-  : 'rgba(59,91,219,0.16)',
+  bandColor: dark
+  ? 'rgba(255, 159, 67, 0.25)'
+  : 'rgba(230, 126, 34, 0.18)',
   };
 }
 
@@ -156,38 +156,60 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
 function HeightGraph({ heights, Pr, uncertainty, dark }) {
   const colors = getPlotColors(dark);
 
-  const traces = useMemo(() => {
-    const t = [];
 
-    // Uncertainty band (horizontal for this orientation)
-    if (uncertainty && uncertainty.upper && uncertainty.lower) {
-      t.push({
-        x: [...uncertainty.upper, ...[...uncertainty.lower].reverse()],
-        y: [...heights, ...[...heights].reverse()],
-        fill: 'toself',
-        fillcolor: colors.bandColor,
-        line: { color: 'transparent' },
-        name: 'Faixa de incerteza',
-        showlegend: true,
-        hoverinfo: 'skip',
-        type: 'scatter',
-      });
-    }
+const traces = useMemo(() => {
+  const t = [];
 
-    // Main curve
+  // Faixa de incerteza: somente quando maior que zero
+  if (
+    uncertainty &&
+    uncertainty.upper &&
+    uncertainty.lower
+  ) {
+    // Limite superior
     t.push({
-      x: Pr,
-      y: heights,
+      x: distances,
+      y: uncertainty.upper,
       mode: 'lines',
-      name: 'Potência recebida (dBm)',
-      line: { color: colors.lineClr, width: 2.2 },
-      hovertemplate:
-        '<b>ht</b>: %{y:.1f} m<br><b>Pr</b>: %{x:.2f} dBm<extra></extra>',
+      line: { color: 'rgba(0,0,0,0)', width: 0 },
+      showlegend: false,
+      hoverinfo: 'skip',
       type: 'scatter',
     });
 
-    return t;
-  }, [heights, Pr, uncertainty, colors]);
+    // Limite inferior e preenchimento
+    t.push({
+      x: distances,
+      y: uncertainty.lower,
+      mode: 'lines',
+      line: { color: 'rgba(0,0,0,0)', width: 0 },
+      fill: 'tonexty',
+      fillcolor: colors.bandColor,
+      name: 'Faixa de incerteza',
+      showlegend: true,
+      hoverinfo: 'skip',
+      type: 'scatter',
+    });
+  }
+
+  // CURVA PRINCIPAL: sempre desenhada, independentemente da incerteza
+  t.push({
+    x: distances,
+    y: Pr,
+    mode: 'lines',
+    name: 'Potência recebida (dBm)',
+    line: {
+      color: colors.lineClr,
+      width: 2.5,
+    },
+    hovertemplate:
+      '<b>Distância</b>: %{x:.1f} m<br><b>Pr</b>: %{y:.2f} dBm<extra></extra>',
+    type: 'scatter',
+  });
+
+  return t;
+}, [distances, Pr, uncertainty, colors]);
+
 
   const layout = useMemo(
     () => ({
