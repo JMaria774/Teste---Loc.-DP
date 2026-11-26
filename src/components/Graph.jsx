@@ -13,7 +13,9 @@ function getPlotColors(dark) {
     textClr: dark ? '#e8eaf6' : '#1a1d2e',
     lineClr: dark ? '#5c7cfa' : '#3b5bdb',
     legendBg: dark ? 'rgba(26,29,39,.8)' : 'rgba(255,255,255,.85)',
-    bandColor: dark ? 'rgba(92,124,250,0.30)' : 'rgba(59,91,219,0.22)',
+   bandColor: dark
+  ? 'rgba(92,124,250,0.22)'
+  : 'rgba(59,91,219,0.16)',
   };
 }
 
@@ -27,58 +29,39 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
     const t = [];
 
  
-    // Uncertainty band (shaded area)
-    if (uncertainty && uncertainty.upper && uncertainty.lower) {
-      const bandX = [...distances, ...[...distances].reverse()];
-      const bandY = [
-        ...uncertainty.upper,
-        ...[...uncertainty.lower].reverse()
-      ];
-
-      // Área preenchida
-      t.push({
-        x: bandX,
-        y: bandY,
-        fill: 'toself',
-        fillcolor: colors.bandColor,
-        line: { color: 'transparent' },
-        name: 'Faixa de incerteza',
-        showlegend: true,
-        hoverinfo: 'skip',
-        type: 'scatter',
-      });
-
+    // Uncertainty band
+    if (
+      uncertainty &&
+      uncertainty.upper &&
+      uncertainty.lower
+    ) {
       // Limite superior
       t.push({
         x: distances,
         y: uncertainty.upper,
         mode: 'lines',
-        line: {
-          color: colors.lineClr,
-          width: 1.3,
-          dash: 'dot',
-        },
+        line: { color: 'transparent', width: 0 },
         showlegend: false,
         hoverinfo: 'skip',
         type: 'scatter',
       });
 
-      // Limite inferior
+      // Limite inferior: preenchimento entre os dois limites
       t.push({
         x: distances,
         y: uncertainty.lower,
         mode: 'lines',
-        line: {
-          color: colors.lineClr,
-          width: 1.3,
-          dash: 'dot',
-        },
-        showlegend: false,
+        line: { color: 'transparent', width: 0 },
+        fill: 'tonexty',
+        fillcolor: colors.bandColor,
+        name: 'Faixa de incerteza',
+        showlegend: true,
         hoverinfo: 'skip',
         type: 'scatter',
       });
     }
 
+  
 
     return t;
   }, [distances, Pr, uncertainty, colors]);
