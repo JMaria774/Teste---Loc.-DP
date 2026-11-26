@@ -254,19 +254,20 @@ if (!Number.isFinite(n) || n <= 0) {
           </div>
 
           {/* Graph */}
-          <Graph
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            Pt={parseFloat(params.Pt)}
-            distances={distResult?.distances}
-            Pr={distResult?.Pr}
-            breakpoint={distResult?.breakpoint}
-            uncertaintyDist={distResult?.uncertainty}
-            heights={heightResult?.heights}
-            PrHeight={heightResult?.Pr}
-            uncertaintyHeight={heightResult?.uncertainty}
-            dark={dark}
-          />
+         <Graph
+  activeTab={activeTab}
+  onTabChange={setActiveTab}
+  distances={distResult?.distances}
+  Pr={distResult?.Pr}
+  breakpoint={distResult?.breakpoint}
+  uncertaintyDist={distResult?.uncertainty}
+  heights={heightResult?.heights}
+  PrHeight={heightResult?.Pr}
+  uncertaintyHeight={heightResult?.uncertainty}
+  Pt={parseFloat(params.Pt)}
+  n={parseFloat(params.n)}
+  dark={dark}
+/>
         </main>
       </div>
     </div>
