@@ -75,7 +75,7 @@ function DistanceGraph({ distances, Pr, breakpoint, uncertainty, dark }) {
       name: 'Potência recebida (dBm)',
       line: {
         color: colors.lineClr,
-        width: 2.5,
+        width: 1,
       },
       hovertemplate:
         '<b>Distância</b>: %{x:.1f} m<br><b>Pr</b>: %{y:.2f} dBm<extra></extra>',
