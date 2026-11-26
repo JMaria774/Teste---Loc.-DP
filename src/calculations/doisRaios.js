@@ -1,4 +1,4 @@
-
+ 
 /**
  * Two-Ray Ground Reflection Model — Core Calculations
  *
